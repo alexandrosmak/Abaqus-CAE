@@ -22,4 +22,4 @@ Separate buffers are used for PEEQ and PEEQR:
 This prevents the second VGETVRM call from overwriting the first result.
 
 ### Compile and run Abaqus/Explicit with the user subroutine
-abaqus job=JOB_NAME user=VUSDFLD.for double interactive
+abaqus job=JOB_NAME user=VUSDFLD_Final.f double interactive
