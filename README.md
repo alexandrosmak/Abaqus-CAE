@@ -93,6 +93,31 @@ Update these values in the **User parameters** section:
 - Submits jobs via:
   - `abaqus job=<job_name> input=<short_path_to_inp>`
 
+## Abaqus Batch Extraction
+---
+### Comp_Extract.py — Abaqus ODB Compression Results Extractor
+This script post-processes multiple **Abaqus/Explicit compression** `.odb` files and extracts:
+
+- `LE22` (logarithmic strain in 22 direction)
+- `S22`  (Cauchy stress in 22 direction)
+
+Absolute values are taken and written into a single combined CSV file for all amplitudes.
+
+#### What it does
+1. Loops over a predefined list of amplitude tags.
+2. Opens each corresponding ODB file:
+
+### Shear_Extract.py — Abaqus ODB Random Shear Results Extractor
+This script post-processes multiple **Abaqus/Explicit shear** `.odb` files and extracts:
+
+- `LE12` (logarithmic shear strain)
+- `S12`  (Cauchy shear stress)
+
+Absolute values are taken and written into a single combined CSV file for all amplitudes.
+
+#### What it does
+1. Loops over a predefined list of amplitude tags.
+2. Opens each corresponding ODB file:
 
 
 
