@@ -26,7 +26,8 @@ abaqus job=JOB_NAME user=VUSDFLD_Final.f double interactive
 
 
 ## Abaqus Batch Runners
---
+---
+
 ### EDP_Comp.py — Abaqus/Explicit Compression Batch Runner (INP Generator)
 1. Reading a known-working **base `.inp`** file.
 2. Removing the last `*Step ... *End Step` block.
@@ -82,7 +83,7 @@ Update these values in the **User parameters** section:
 - `user_sub` *(optional)*  
   Path to a user subroutine file (e.g., `VUSDFLD_Final.f`).  
   Leave empty (`""`) to run without a user subroutine.
----
+
 #### How it works internally
 - Reads the base `.inp`
 - Locates the last `*Step` ... `*End Step` section
