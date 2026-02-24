@@ -26,6 +26,7 @@ abaqus job=JOB_NAME user=VUSDFLD_Final.f double interactive
 
 
 ## Abaqus Batch Runners
+--
 ### EDP_Comp.py — Abaqus/Explicit Compression Batch Runner (INP Generator)
 1. Reading a known-working **base `.inp`** file.
 2. Removing the last `*Step ... *End Step` block.
@@ -69,7 +70,7 @@ Update these values in the **User parameters** section:
 5. Renaming the resulting `.odb` file so it includes the amplitude tag.  
 
 This is useful when you want to re-run the same shear model with different loading histories / durations controlled via amplitude definitions (and optionally a user subroutine).
----
+
 #### Configuration (edit at top of file):
 Update these values in the **User parameters** section:
 - `base_file`  
