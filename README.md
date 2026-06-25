@@ -1,6 +1,7 @@
 # Abaqus-CAE
 
-Utilities, scripts, and subroutines for Abaqus/CAE and Abaqus/Explicit workflows.
+Utilities, scripts, examples, and subroutines for Abaqus/CAE and
+Abaqus/Explicit workflows.
 
 ## Repository Structure
 
@@ -9,26 +10,31 @@ Abaqus-CAE/
   scripts/
     cae/
       shell_to_solid_part.py
+    batch/
+      compression_rate_auto.py
+      shear_rate_auto.py
+    extraction/
+      compression_extract.py
+      shear_extract.py
+  subroutines/
+    VUSFLD_Final.f
   examples/
+    input_files/
+      Comp_Job.inp
+      Shear_Job.inp
     shell_to_solid_settings.py
   README.md
   .gitignore
 ```
 
-Recommended structure for future additions:
-
-```text
-  scripts/
-    batch/        # INP generation and Abaqus job submission scripts
-    extraction/   # ODB post-processing scripts
-  subroutines/    # Fortran user subroutines such as VUSDFLD
-```
+Generated Abaqus run outputs are written to `runs/`, which is ignored by git.
 
 ## Abaqus/CAE Utilities
 
-### `scripts/cae/shell_to_solid_part.py` - Shell-to-solid mesh conversion
+### `scripts/cae/shell_to_solid_part.py`
 
-Generic Abaqus/CAE script for converting an existing 4-node shell mesh part into a solid orphan-mesh part.
+Generic Abaqus/CAE script for converting an existing 4-node shell mesh part into
+a solid orphan-mesh part.
 
 What it does:
 
@@ -37,7 +43,7 @@ What it does:
 3. Creates a new solid orphan-mesh part by offsetting shell nodes through the requested thickness.
 4. Converts each quadrilateral shell element into layered C3D8R solid elements.
 
-The script is model-agnostic. Edit the `USER SETTINGS` block before running:
+Edit the `USER SETTINGS` block before running:
 
 ```python
 MODEL_NAME = None
@@ -60,7 +66,9 @@ Or from the command line:
 abaqus cae noGUI=scripts/cae/shell_to_solid_part.py
 ```
 
-After running, inspect the generated solid part, confirm the offset direction, assign a solid section, update the assembly instance as needed, and export the input file manually.
+After running, inspect the generated solid part, confirm the offset direction,
+assign a solid section, update the assembly instance as needed, and export the
+input file manually.
 
 Notes:
 
@@ -69,97 +77,83 @@ Notes:
 - Does not modify steps, contacts, materials, sections, boundary conditions, loads, amplitudes, output requests, or assembly instances.
 - If the solid wall grows in the wrong direction, set `REVERSE_NORMAL = True` and rerun.
 
-## Abaqus/Explicit VUSDFLD Subroutine
+## Batch Runners
 
-### Overview
+### `scripts/batch/compression_rate_auto.py`
 
-This repository also documents a Fortran user subroutine for Abaqus/Explicit: `VUSDFLD`.
+Generates and submits Abaqus/Explicit compression `.inp` files from
+`examples/input_files/Comp_Job.inp`.
 
-The subroutine reads two internal Abaqus variables at each material point in the current block:
+The script:
 
-- `PEEQ`: equivalent cumulative plastic strain
-- `PEEQR`: equivalent plastic strain rate
+1. Reads the base input file.
+2. Removes the last `*Step ... *End Step` block.
+3. Writes one generated input file per amplitude and simulation time.
+4. Submits each job through the Abaqus command line.
+5. Renames each resulting `.odb` file with its amplitude tag.
 
-It then stores these values into:
+Generated compression files are written to `runs/compression/`.
 
-- State variables through `STATENEW`
-- Field variables through the `FIELD` array
+### `scripts/batch/shear_rate_auto.py`
 
-This makes `PEEQ` and `PEEQR` available for post-processing, output requests, or field-dependent material behavior.
+Generates and submits Abaqus/Explicit shear `.inp` files from
+`examples/input_files/Shear_Job.inp`.
 
-### Notes on implementation details
+The script:
 
-The code uses `MAXBLK` from `VABA_PARAM.INC` to dimension working arrays safely for vectorized execution.
+1. Reads the base input file.
+2. Removes the last `*Step ... *End Step` block.
+3. Writes one generated input file per amplitude and simulation time.
+4. Submits each job through the Abaqus command line.
+5. Renames each resulting `.odb` file with its amplitude tag.
 
-It defines `NRDATA_PEEQ = 1`, meaning one value is requested per block entry per `VGETVRM` call. Separate buffers are used for `PEEQ` and `PEEQR`:
+Generated shear files are written to `runs/shear/`.
 
-- `RDATA_PEEQ`
-- `RDATA_PEEQR`
+## ODB Extraction
 
-This prevents the second `VGETVRM` call from overwriting the first result.
+### `scripts/extraction/compression_extract.py`
 
-### Compile and run Abaqus/Explicit with the user subroutine
-
-```text
-abaqus job=JOB_NAME user=VUSDFLD_Final.f double interactive
-```
-
-## Abaqus Batch Runners
-
-### `EDP_Comp.py` - Abaqus/Explicit compression batch runner
-
-This script generates and submits compression `.inp` files from a known-working base input file.
-
-It is intended to:
-
-1. Read a base `.inp` file.
-2. Remove the last `*Step ... *End Step` block.
-3. Write new `.inp` files with selected amplitude names and simulation times.
-4. Submit each generated input file using the Abaqus command line.
-5. Rename each resulting `.odb` file so it includes the amplitude tag.
-
-Configuration values to edit at the top of the file:
-
-- `base_file`: absolute path to a working base `.inp` file.
-- `amplitudes`: amplitude names that already exist or are referenced correctly in the base model.
-- `simulation_times`: step time for each amplitude. This must match the amplitude list length.
-- `user_sub`: optional path to a user subroutine, such as `VUSDFLD_Final.f`. Leave empty to run without a user subroutine.
-
-### `EDP_Shear.py` - Abaqus/Explicit random shear batch runner
-
-This script generates and submits shear `.inp` files from a known-working base input file.
-
-It is intended to:
-
-1. Read a base `.inp` file.
-2. Remove the last `*Step ... *End Step` block.
-3. Write new `.inp` files with selected amplitude names and simulation times.
-4. Submit jobs through Abaqus.
-5. Rename each resulting `.odb` file so it includes the amplitude tag.
-
-Configuration values to edit at the top of the file:
-
-- `base_file`: absolute path to a working base `.inp` file.
-- `amplitudes`: amplitude names that already exist or are referenced correctly in the base model.
-- `simulation_times`: step time for each amplitude. This must match the amplitude list length.
-- `user_sub`: optional path to a user subroutine, such as `VUSDFLD_Final.f`. Leave empty to run without a user subroutine.
-
-## Abaqus Batch Extraction
-
-### `Comp_Extract.py` - Abaqus ODB compression results extractor
-
-Post-processes multiple Abaqus/Explicit compression `.odb` files and extracts:
+Post-processes compression `.odb` files in `runs/compression/` and extracts:
 
 - `LE22`: logarithmic strain in the 22 direction
 - `S22`: Cauchy stress in the 22 direction
 
-Absolute values are taken and written into a combined CSV file for all amplitudes.
+Absolute values are written to `Compression Results 1mm.csv`.
 
-### `Shear_Extract.py` - Abaqus ODB random shear results extractor
+### `scripts/extraction/shear_extract.py`
 
-Post-processes multiple Abaqus/Explicit shear `.odb` files and extracts:
+Post-processes shear `.odb` files in `runs/shear/` and extracts:
 
 - `LE12`: logarithmic shear strain
 - `S12`: Cauchy shear stress
 
-Absolute values are taken and written into a combined CSV file for all amplitudes.
+Absolute values are written to `Random_Shear_Results.csv`.
+
+## User Subroutines
+
+### `subroutines/VUSFLD_Final.f`
+
+Fortran user subroutine for Abaqus/Explicit `VUSDFLD`.
+
+The subroutine reads two internal Abaqus variables at each material point in the
+current block:
+
+- `PEEQ`: equivalent cumulative plastic strain
+- `PEEQR`: equivalent plastic strain rate
+
+It stores these values into:
+
+- State variables through `STATENEW`
+- Field variables through the `FIELD` array
+
+Compile and run Abaqus/Explicit with:
+
+```text
+abaqus job=JOB_NAME user=subroutines/VUSFLD_Final.f double interactive
+```
+
+## Examples
+
+- `examples/input_files/Comp_Job.inp`: base compression input deck.
+- `examples/input_files/Shear_Job.inp`: base shear input deck.
+- `examples/shell_to_solid_settings.py`: settings template for the CAE shell-to-solid utility.

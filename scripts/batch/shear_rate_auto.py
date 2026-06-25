@@ -6,8 +6,12 @@ import time
 # -----------------------------------------------------------------------------
 # User parameters
 # -----------------------------------------------------------------------------
-base_file = r'....\Shear_Job.inp'
-output_dir = os.path.dirname(base_file)
+script_dir = os.path.dirname(os.path.abspath(__file__))
+repo_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
+base_file = os.path.join(repo_root, 'examples', 'input_files', 'Shear_Job.inp')
+output_dir = os.path.join(repo_root, 'runs', 'shear')
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
 amplitudes = ["AMP-001", "AMP-01", "AMP-025", "AMP-05"]
 simulation_times = [32.331, 3.233, 1.293, 0.647]

@@ -6,9 +6,13 @@ import time
 # -----------------------------------------------------------------------------
 # User parameters
 # -----------------------------------------------------------------------------
-# Base INP file that works
-base_file = r'....\Comp_Job.inp'
-output_dir = os.path.dirname(base_file)
+# Base INP file and output directory
+script_dir = os.path.dirname(os.path.abspath(__file__))
+repo_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
+base_file = os.path.join(repo_root, 'examples', 'input_files', 'Comp_Job.inp')
+output_dir = os.path.join(repo_root, 'runs', 'compression')
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
 # Amplitudes and corresponding simulation times
 amplitudes       = ["AMP-001", "AMP-01", "AMP-025", "AMP-05"]

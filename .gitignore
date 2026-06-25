@@ -9,6 +9,7 @@
 *.dat
 *.msg
 *.com
-*.inp
+runs/
+generated/
 __pycache__/
 *.pyc
