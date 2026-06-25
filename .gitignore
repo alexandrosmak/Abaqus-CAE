@@ -1,0 +1,14 @@
+*.cae
+*.jnl
+*.log
+*.lck
+*.odb
+*.prt
+*.sim
+*.sta
+*.dat
+*.msg
+*.com
+*.inp
+__pycache__/
+*.pyc
