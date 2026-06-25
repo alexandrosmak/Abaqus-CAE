@@ -1,123 +1,165 @@
 # Abaqus-CAE
 
-## Abaqus/Explicit VUSDFLD Subroutine (PEEQ + PEEQR)
+Utilities, scripts, and subroutines for Abaqus/CAE and Abaqus/Explicit workflows.
+
+## Repository Structure
+
+```text
+Abaqus-CAE/
+  scripts/
+    cae/
+      shell_to_solid_part.py
+  examples/
+    shell_to_solid_settings.py
+  README.md
+  .gitignore
+```
+
+Recommended structure for future additions:
+
+```text
+  scripts/
+    batch/        # INP generation and Abaqus job submission scripts
+    extraction/   # ODB post-processing scripts
+  subroutines/    # Fortran user subroutines such as VUSDFLD
+```
+
+## Abaqus/CAE Utilities
+
+### `scripts/cae/shell_to_solid_part.py` - Shell-to-solid mesh conversion
+
+Generic Abaqus/CAE script for converting an existing 4-node shell mesh part into a solid orphan-mesh part.
+
+What it does:
+
+1. Reads an existing shell mesh part from the open CAE database.
+2. Computes averaged nodal normals from shell element connectivity.
+3. Creates a new solid orphan-mesh part by offsetting shell nodes through the requested thickness.
+4. Converts each quadrilateral shell element into layered C3D8R solid elements.
+
+The script is model-agnostic. Edit the `USER SETTINGS` block before running:
+
+```python
+MODEL_NAME = None
+SOURCE_PART_NAME = 'SOURCE_PART'
+NEW_PART_NAME = 'SOURCE_PART_SOLID'
+TOTAL_THICKNESS = 1.0
+LAYERS = 2
+REVERSE_NORMAL = False
+```
+
+Run from Abaqus/CAE:
+
+```text
+File -> Run Script -> scripts/cae/shell_to_solid_part.py
+```
+
+Or from the command line:
+
+```text
+abaqus cae noGUI=scripts/cae/shell_to_solid_part.py
+```
+
+After running, inspect the generated solid part, confirm the offset direction, assign a solid section, update the assembly instance as needed, and export the input file manually.
+
+Notes:
+
+- Converts 4-node quadrilateral shell elements only.
+- Creates reduced-integration C3D8R brick elements by default.
+- Does not modify steps, contacts, materials, sections, boundary conditions, loads, amplitudes, output requests, or assembly instances.
+- If the solid wall grows in the wrong direction, set `REVERSE_NORMAL = True` and rerun.
+
+## Abaqus/Explicit VUSDFLD Subroutine
+
 ### Overview
-This repository contains a Fortran user subroutine for Abaqus/Explicit: VUSDFLD.
+
+This repository also documents a Fortran user subroutine for Abaqus/Explicit: `VUSDFLD`.
+
 The subroutine reads two internal Abaqus variables at each material point in the current block:
-PEEQ — equivalent (cumulative) plastic strain
-PEEQR — equivalent plastic strain rate
+
+- `PEEQ`: equivalent cumulative plastic strain
+- `PEEQR`: equivalent plastic strain rate
 
 It then stores these values into:
-* State variables (STATEV) via STATENEW
-* Field variables (FIELD) via the FIELD array
 
-This makes PEEQ and PEEQR available for post-processing, output requests, or for driving field-dependent material behavior.
+- State variables through `STATENEW`
+- Field variables through the `FIELD` array
+
+This makes `PEEQ` and `PEEQR` available for post-processing, output requests, or field-dependent material behavior.
 
 ### Notes on implementation details
-The code uses MAXBLK from VABA_PARAM.INC to dimension working arrays safely for vectorized execution.
-It defines NRDATA_PEEQ = 1, meaning one value requested per block entry per VGETVRM call.
-Separate buffers are used for PEEQ and PEEQR:
-* RDATA_PEEQ
-* RDATA_PEEQR
-This prevents the second VGETVRM call from overwriting the first result.
+
+The code uses `MAXBLK` from `VABA_PARAM.INC` to dimension working arrays safely for vectorized execution.
+
+It defines `NRDATA_PEEQ = 1`, meaning one value is requested per block entry per `VGETVRM` call. Separate buffers are used for `PEEQ` and `PEEQR`:
+
+- `RDATA_PEEQ`
+- `RDATA_PEEQR`
+
+This prevents the second `VGETVRM` call from overwriting the first result.
 
 ### Compile and run Abaqus/Explicit with the user subroutine
-abaqus job=JOB_NAME user=VUSDFLD_Final.f double interactive
 
+```text
+abaqus job=JOB_NAME user=VUSDFLD_Final.f double interactive
+```
 
 ## Abaqus Batch Runners
----
 
-### EDP_Comp.py — Abaqus/Explicit Compression Batch Runner (INP Generator)
-1. Reading a known-working **base `.inp`** file.
-2. Removing the last `*Step ... *End Step` block.
-3. Writing new `.inp` files, each with:
-   - a selected **amplitude** name (e.g., `AMP-001`)
-   - a corresponding **simulation time**
-4. Submitting each generated input file using the Abaqus command line.
-5. Renaming the resulting `.odb` file so it includes the amplitude tag.
+### `EDP_Comp.py` - Abaqus/Explicit compression batch runner
 
-This is useful when you want to re-run the same model with different loading rates/time scales controlled via amplitude definitions.
+This script generates and submits compression `.inp` files from a known-working base input file.
 
-##### Configuration (edit at top of file):
-Update these values in the **User parameters** section:
-- `base_file`  
-  Absolute path to a working base `.inp` file.
-- `amplitudes`  
-  List of amplitude names that must already exist/be referenced correctly in your base model.
-- `simulation_times`  
-  Step time associated with each amplitude (must match list length).
-  - `user_sub` *(optional)*  
-  Path to a user subroutine file (e.g., `VUSDFLD_Final.f`).  
-  Leave empty (`""`) to run without a user subroutine.
+It is intended to:
 
-#### How it works internally
-- Reads the base `.inp`
-- Locates the last `*Step` ... `*End Step` section
-- Keeps everything *before* that block as common content
-- Appends a newly built Step block for each run
-- Submits via:
-  - `abaqus job=<job_name> input=<short_path_to_inp>`
+1. Read a base `.inp` file.
+2. Remove the last `*Step ... *End Step` block.
+3. Write new `.inp` files with selected amplitude names and simulation times.
+4. Submit each generated input file using the Abaqus command line.
+5. Rename each resulting `.odb` file so it includes the amplitude tag.
 
+Configuration values to edit at the top of the file:
 
-### EDP_Shear.py — Abaqus/Explicit Random Shear Batch Runner (INP Generator)
+- `base_file`: absolute path to a working base `.inp` file.
+- `amplitudes`: amplitude names that already exist or are referenced correctly in the base model.
+- `simulation_times`: step time for each amplitude. This must match the amplitude list length.
+- `user_sub`: optional path to a user subroutine, such as `VUSDFLD_Final.f`. Leave empty to run without a user subroutine.
 
-1. Reading a known-working **base `.inp`** file.  
-2. Removing the last `*Step ... *End Step` block.  
-3. Writing new `.inp` files, each with:
-   - a selected **amplitude** name (e.g., `AMP-001`)
-   - a corresponding **simulation time**
-4. Submitting each generated input file using the Abaqus command line.  
-5. Renaming the resulting `.odb` file so it includes the amplitude tag.  
+### `EDP_Shear.py` - Abaqus/Explicit random shear batch runner
 
-This is useful when you want to re-run the same shear model with different loading histories / durations controlled via amplitude definitions (and optionally a user subroutine).
+This script generates and submits shear `.inp` files from a known-working base input file.
 
-#### Configuration (edit at top of file):
-Update these values in the **User parameters** section:
-- `base_file`  
-  Absolute path to a working base `.inp` file (e.g., `RandomExplicitShear.inp`).
-- `amplitudes`  
-  List of amplitude names that must already exist / be referenced correctly in your base model.
-- `simulation_times`  
-  Step time associated with each amplitude (must match list length).
-- `user_sub` *(optional)*  
-  Path to a user subroutine file (e.g., `VUSDFLD_Final.f`).  
-  Leave empty (`""`) to run without a user subroutine.
+It is intended to:
 
-#### How it works internally
-- Reads the base `.inp`
-- Locates the last `*Step` ... `*End Step` section
-- Keeps everything *before* that block as common content
-- Appends a newly built Explicit Step block for each run
-- Applies shear boundary conditions using the selected amplitude
-- Submits jobs via:
-  - `abaqus job=<job_name> input=<short_path_to_inp>`
+1. Read a base `.inp` file.
+2. Remove the last `*Step ... *End Step` block.
+3. Write new `.inp` files with selected amplitude names and simulation times.
+4. Submit jobs through Abaqus.
+5. Rename each resulting `.odb` file so it includes the amplitude tag.
+
+Configuration values to edit at the top of the file:
+
+- `base_file`: absolute path to a working base `.inp` file.
+- `amplitudes`: amplitude names that already exist or are referenced correctly in the base model.
+- `simulation_times`: step time for each amplitude. This must match the amplitude list length.
+- `user_sub`: optional path to a user subroutine, such as `VUSDFLD_Final.f`. Leave empty to run without a user subroutine.
 
 ## Abaqus Batch Extraction
----
-### Comp_Extract.py — Abaqus ODB Compression Results Extractor
-This script post-processes multiple **Abaqus/Explicit compression** `.odb` files and extracts:
 
-- `LE22` (logarithmic strain in 22 direction)
-- `S22`  (Cauchy stress in 22 direction)
+### `Comp_Extract.py` - Abaqus ODB compression results extractor
 
-Absolute values are taken and written into a single combined CSV file for all amplitudes.
+Post-processes multiple Abaqus/Explicit compression `.odb` files and extracts:
 
-#### What it does
-1. Loops over a predefined list of amplitude tags.
-2. Opens each corresponding ODB file:
+- `LE22`: logarithmic strain in the 22 direction
+- `S22`: Cauchy stress in the 22 direction
 
-### Shear_Extract.py — Abaqus ODB Random Shear Results Extractor
-This script post-processes multiple **Abaqus/Explicit shear** `.odb` files and extracts:
+Absolute values are taken and written into a combined CSV file for all amplitudes.
 
-- `LE12` (logarithmic shear strain)
-- `S12`  (Cauchy shear stress)
+### `Shear_Extract.py` - Abaqus ODB random shear results extractor
 
-Absolute values are taken and written into a single combined CSV file for all amplitudes.
+Post-processes multiple Abaqus/Explicit shear `.odb` files and extracts:
 
-#### What it does
-1. Loops over a predefined list of amplitude tags.
-2. Opens each corresponding ODB file:
+- `LE12`: logarithmic shear strain
+- `S12`: Cauchy shear stress
 
-
-
+Absolute values are taken and written into a combined CSV file for all amplitudes.
